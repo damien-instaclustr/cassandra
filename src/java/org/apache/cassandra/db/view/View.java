@@ -45,6 +45,7 @@ import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.ReadQuery;
 import org.apache.cassandra.db.compaction.CompactionManager;
+import org.apache.cassandra.db.rows.ColumnData;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.KeyspaceMetadata;
 import org.apache.cassandra.service.ClientState;
@@ -249,6 +250,8 @@ public class View
         for (Relation rel : whereClause)
         {
             StringBuilder sb = new StringBuilder();
+
+            assert !rel.onToken() : "token() function found in MV WHERE clause.";
 
             if (rel.isMultiColumn())
             {
