@@ -123,6 +123,16 @@ public class CreateViewStatement extends SchemaAlteringStatement
         }
     }
 
+    public void validateWhereClause(WhereClause whereClause) throws RequestValidationException
+    {
+        // Use of UDFs is where clause in not yet supported.token() is the only function allowed in where clause of select.
+        for (Relation rel : whereClause.relations)
+        {
+            if (rel.onToken())
+                throw new InvalidRequestException("Cannot use function when defining a materialized view");
+        }
+    }
+
     public Event.SchemaChange announceMigration(QueryState queryState, boolean isLocalOnly) throws RequestValidationException
     {
         if (!DatabaseDescriptor.enableMaterializedViews())
@@ -242,6 +252,8 @@ public class CreateViewStatement extends SchemaAlteringStatement
                                                                         .map(def -> def.name.toString())
                                                                         .collect(Collectors.joining(", "))));
         }
+
+        validateWhereClause(whereClause);
 
         String whereClauseText = View.relationsToWhereClause(whereClause.relations);
 
