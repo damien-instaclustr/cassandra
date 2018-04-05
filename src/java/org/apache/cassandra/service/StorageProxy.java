@@ -569,10 +569,12 @@ public class StorageProxy implements StorageProxyMBean
                         }
                     }
                 });
+                writeMetrics.localRequest.mark();
             }
             else
             {
                 MessagingService.instance().sendRR(message, target, callback);
+                writeMetrics.remoteRequest.mark();
             }
         }
         callback.await();
@@ -672,6 +674,21 @@ public class StorageProxy implements StorageProxyMBean
         });
     }
 
+    public static boolean isLocalMutation(IMutation mutation)
+    {
+        Token tk = mutation.key().getToken();
+        String keyspace = mutation.getKeyspaceName();
+        List<InetAddressAndPort> endPoints = StorageService.instance.getNaturalEndpoints(keyspace, tk);
+
+        for (InetAddressAndPort endpoint : endPoints)
+        {
+            if (canDoLocalRequest(endpoint))
+                return true;
+        }
+
+        return false;
+    }
+
     /**
      * Use this method to have these Mutations applied
      * across all replicas. This method will take care
@@ -693,8 +710,13 @@ public class StorageProxy implements StorageProxyMBean
 
         try
         {
+            boolean hasLocalEndpoint = false;
+
             for (IMutation mutation : mutations)
             {
+                if (!hasLocalEndpoint && isLocalMutation(mutation))
+                    hasLocalEndpoint = true;
+
                 if (mutation instanceof CounterMutation)
                 {
                     responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
@@ -705,6 +727,11 @@ public class StorageProxy implements StorageProxyMBean
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
             }
+
+            if (hasLocalEndpoint)
+                writeMetrics.localRequest.mark();
+            else
+                writeMetrics.remoteRequest.mark();
 
             // wait for writes.  throws TimeoutException if necessary
             for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
@@ -985,9 +1012,13 @@ public class StorageProxy implements StorageProxyMBean
             BatchlogResponseHandler.BatchlogCleanup cleanup = new BatchlogResponseHandler.BatchlogCleanup(mutations.size(),
                                                                                                           () -> asyncRemoveFromBatchlog(batchlogEndpoints, batchUUID));
 
+            boolean hasLocalEndPoint = false;
             // add a handler for each mutation - includes checking availability, but doesn't initiate any writes, yet
             for (Mutation mutation : mutations)
             {
+                if (!hasLocalEndPoint && isLocalMutation(mutation))
+                    hasLocalEndPoint = true;
+
                 WriteResponseHandlerWrapper wrapper = wrapBatchResponseHandler(mutation,
                                                                                consistency_level,
                                                                                batchConsistencyLevel,
@@ -1004,6 +1035,11 @@ public class StorageProxy implements StorageProxyMBean
 
             // now actually perform the writes and wait for them to complete
             syncWriteBatchedMutations(wrappers, localDataCenter, Stage.MUTATION);
+
+            if (hasLocalEndPoint)
+                writeMetrics.localRequest.mark();
+            else
+                writeMetrics.remoteRequest.mark();
         }
         catch (UnavailableException e)
         {
