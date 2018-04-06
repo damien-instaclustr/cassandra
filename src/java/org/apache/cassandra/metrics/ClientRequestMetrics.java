@@ -31,8 +31,8 @@ public class ClientRequestMetrics extends LatencyMetrics
     public final Meter timeouts;
     public final Meter unavailables;
     public final Meter failures;
-    public final Meter localRequest;
-    public final Meter remoteRequest;
+    public final Meter localRequests;
+    public final Meter remoteRequests;
 
     public ClientRequestMetrics(String scope)
     {
@@ -41,8 +41,8 @@ public class ClientRequestMetrics extends LatencyMetrics
         timeouts = Metrics.meter(factory.createMetricName("Timeouts"));
         unavailables = Metrics.meter(factory.createMetricName("Unavailables"));
         failures = Metrics.meter(factory.createMetricName("Failures"));
-        localRequest = Metrics.meter(factory.createMetricName("LocalRequest"));
-        remoteRequest = Metrics.meter(factory.createMetricName("RemoteRequest"));
+        localRequests = Metrics.meter(factory.createMetricName("LocalRequests"));
+        remoteRequests = Metrics.meter(factory.createMetricName("RemoteRequests"));
     }
 
     public void release()
@@ -51,7 +51,7 @@ public class ClientRequestMetrics extends LatencyMetrics
         Metrics.remove(factory.createMetricName("Timeouts"));
         Metrics.remove(factory.createMetricName("Unavailables"));
         Metrics.remove(factory.createMetricName("Failures"));
-        Metrics.remove(factory.createMetricName("LocalRequest"));
-        Metrics.remove(factory.createMetricName("RemoteRequest"));
+        Metrics.remove(factory.createMetricName("LocalRequests"));
+        Metrics.remove(factory.createMetricName("RemoteRequests"));
     }
 }

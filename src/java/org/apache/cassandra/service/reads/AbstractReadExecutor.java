@@ -39,7 +39,6 @@ import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
 import org.apache.cassandra.exceptions.UnavailableException;
 import org.apache.cassandra.locator.InetAddressAndPort;
-import org.apache.cassandra.metrics.ClientRequestMetrics;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
@@ -65,7 +64,6 @@ public abstract class AbstractReadExecutor
     protected final ReadCommand command;
     protected final ConsistencyLevel consistency;
     protected final List<InetAddressAndPort> targetReplicas;
-    protected final ClientRequestMetrics readMetrics = new ClientRequestMetrics("Read");
     protected final ReadRepair readRepair;
     protected final DigestResolver digestResolver;
     protected final ReadCallback handler;
@@ -143,10 +141,7 @@ public abstract class AbstractReadExecutor
         {
             logger.trace("reading {} locally", readCommand.isDigestQuery() ? "digest" : "data");
             StageManager.getStage(Stage.READ).maybeExecuteImmediately(new LocalReadRunnable(command, handler));
-            readMetrics.localRequest.mark();
         }
-        else
-            readMetrics.remoteRequest.mark();
     }
 
     /**
