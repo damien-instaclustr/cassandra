@@ -508,6 +508,9 @@ public class StorageProxy implements StorageProxyMBean
     {
         PrepareCallback callback = new PrepareCallback(toPrepare.update.partitionKey(), toPrepare.update.metadata(), requiredParticipants, consistencyForPaxos, queryStartNanoTime);
         MessageOut<Commit> message = new MessageOut<Commit>(MessagingService.Verb.PAXOS_PREPARE, toPrepare, Commit.serializer);
+
+        boolean hasLocalRequest = false;
+
         for (InetAddressAndPort target : endpoints)
         {
             if (canDoLocalRequest(target))
@@ -531,12 +534,19 @@ public class StorageProxy implements StorageProxyMBean
                         }
                     }
                 });
+                hasLocalRequest = true;
             }
             else
             {
                 MessagingService.instance().sendRR(message, target, callback);
             }
         }
+
+        if (hasLocalRequest)
+            writeMetrics.localRequests.mark();
+        else
+            writeMetrics.remoteRequests.mark();
+
         callback.await();
         return callback;
     }
@@ -569,12 +579,10 @@ public class StorageProxy implements StorageProxyMBean
                         }
                     }
                 });
-                writeMetrics.localRequests.mark();
             }
             else
             {
                 MessagingService.instance().sendRR(message, target, callback);
-                writeMetrics.remoteRequests.mark();
             }
         }
         callback.await();
