@@ -78,7 +78,6 @@ import org.apache.cassandra.service.paxos.ProposeCallback;
 import org.apache.cassandra.service.paxos.ProposeVerbHandler;
 import org.apache.cassandra.net.MessagingService.Verb;
 import org.apache.cassandra.tracing.Tracing;
-import org.apache.cassandra.transport.Server;
 import org.apache.cassandra.triggers.TriggerExecutor;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.AbstractIterator;
@@ -682,24 +681,13 @@ public class StorageProxy implements StorageProxyMBean
         });
     }
 
-    public static boolean hasLocalEndpoint(List<InetAddressAndPort> endpoints)
-    {
-        for (InetAddressAndPort endpoint : endpoints)
-        {
-            if (canDoLocalRequest(endpoint))
-                return true;
-        }
-
-        return false;
-    }
-
     public static boolean hasLocalMutation(IMutation mutation)
     {
         Token tk = mutation.key().getToken();
         String keyspace = mutation.getKeyspaceName();
         List<InetAddressAndPort> endpoints = StorageService.instance.getNaturalEndpoints(keyspace, tk);
 
-        return hasLocalEndpoint(endpoints);
+        return canDoLocalRequest(endpoints);
     }
 
     /**
@@ -723,12 +711,12 @@ public class StorageProxy implements StorageProxyMBean
 
         try
         {
-            boolean hasLocalRequest = false;
-
             for (IMutation mutation : mutations)
             {
-                if (!hasLocalRequest && hasLocalMutation(mutation))
-                    hasLocalRequest = true;
+                if (hasLocalMutation(mutation))
+                    writeMetrics.localRequests.mark();
+                else
+                    writeMetrics.remoteRequests.mark();
 
                 if (mutation instanceof CounterMutation)
                 {
@@ -740,11 +728,6 @@ public class StorageProxy implements StorageProxyMBean
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
             }
-
-            if (hasLocalRequest)
-                writeMetrics.localRequests.mark();
-            else
-                writeMetrics.remoteRequests.mark();
 
             // wait for writes.  throws TimeoutException if necessary
             for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
@@ -1025,12 +1008,13 @@ public class StorageProxy implements StorageProxyMBean
             BatchlogResponseHandler.BatchlogCleanup cleanup = new BatchlogResponseHandler.BatchlogCleanup(mutations.size(),
                                                                                                           () -> asyncRemoveFromBatchlog(batchlogEndpoints, batchUUID));
 
-            boolean hasLocalRequest = false;
             // add a handler for each mutation - includes checking availability, but doesn't initiate any writes, yet
             for (Mutation mutation : mutations)
             {
-                if (!hasLocalRequest && hasLocalMutation(mutation))
-                    hasLocalRequest = true;
+                if (hasLocalMutation(mutation))
+                    writeMetrics.localRequests.mark();
+                else
+                    writeMetrics.remoteRequests.mark();
 
                 WriteResponseHandlerWrapper wrapper = wrapBatchResponseHandler(mutation,
                                                                                consistency_level,
@@ -1048,11 +1032,6 @@ public class StorageProxy implements StorageProxyMBean
 
             // now actually perform the writes and wait for them to complete
             syncWriteBatchedMutations(wrappers, localDataCenter, Stage.MUTATION);
-
-            if (hasLocalRequest)
-                writeMetrics.localRequests.mark();
-            else
-                writeMetrics.remoteRequests.mark();
         }
         catch (UnavailableException e)
         {
@@ -1087,6 +1066,11 @@ public class StorageProxy implements StorageProxyMBean
     public static boolean canDoLocalRequest(InetAddressAndPort replica)
     {
         return replica.equals(FBUtilities.getBroadcastAddressAndPort());
+    }
+
+    public static boolean canDoLocalRequest(List<InetAddressAndPort> endpoints)
+    {
+        return endpoints.contains(FBUtilities.getBroadcastAddressAndPort());
     }
 
     private static void updateCoordinatorWriteLatencyTableMetric(Collection<? extends IMutation> mutations, long latency)
@@ -1690,16 +1674,6 @@ public class StorageProxy implements StorageProxyMBean
             throw new IsBootstrappingException();
         }
 
-        SinglePartitionReadCommand command = group.commands.get(0);
-        String keyspaceName = command.metadata().keyspace;
-        Token token = command.partitionKey().getToken();
-        List<InetAddressAndPort> endpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, token);
-
-        if (hasLocalEndpoint(endpoints))
-            readMetrics.localRequests.mark();
-        else
-            readMetrics.remoteRequests.mark();
-
         return consistencyLevel.isSerialConsistency()
              ? readWithPaxos(group, consistencyLevel, state, queryStartNanoTime)
              : readRegular(group, consistencyLevel, queryStartNanoTime);
@@ -1878,6 +1852,11 @@ public class StorageProxy implements StorageProxyMBean
         for (int i=0; i<cmdCount; i++)
         {
             results.add(reads[i].getResult());
+
+            if (canDoLocalRequest(reads[i].getContactedReplicas()))
+                readMetrics.localRequests.mark();
+            else
+                readMetrics.remoteRequests.mark();
         }
 
         return PartitionIterators.concat(results);
