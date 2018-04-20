@@ -1821,6 +1821,13 @@ public class StorageProxy implements StorageProxyMBean
         for (int i=0; i<cmdCount; i++)
         {
             reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+
+            // Check to see if read conducted locally here to ensure that
+            // reads[x].getContactedReplicas() is populated.
+            if (canDoLocalRequest(reads[i].getContactedReplicas()))
+                readMetrics.localRequests.mark();
+            else
+                readMetrics.remoteRequests.mark();
         }
 
         for (int i=0; i<cmdCount; i++)
@@ -1852,11 +1859,6 @@ public class StorageProxy implements StorageProxyMBean
         for (int i=0; i<cmdCount; i++)
         {
             results.add(reads[i].getResult());
-
-            if (canDoLocalRequest(reads[i].getContactedReplicas()))
-                readMetrics.localRequests.mark();
-            else
-                readMetrics.remoteRequests.mark();
         }
 
         return PartitionIterators.concat(results);

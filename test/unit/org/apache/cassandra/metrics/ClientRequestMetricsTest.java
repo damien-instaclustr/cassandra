@@ -38,50 +38,33 @@ import org.apache.cassandra.service.EmbeddedCassandraService;
 
 import static junit.framework.Assert.assertEquals;
 
-class MetricContainer
+class ClientRequestMetricsContainer
 {
+    private ClientRequestMetrics metrics;
 
-    private static final ClientRequestMetrics readMetrics = new ClientRequestMetrics("Read");
-    private static final ClientRequestMetrics writeMetrics = new ClientRequestMetrics("Write");
+    private long localRequests;
+    private long remoteRequests;
 
-    private static long readLocalRequests;
-    private static long readRemoteRequests;
-
-    private static long writeLocalRequests;
-    private static long writeRemoteRequest;
-
-    public MetricContainer()
+    public ClientRequestMetricsContainer(ClientRequestMetrics clientRequestMetrics)
     {
-        readLocalRequests = readMetrics.localRequests.getCount();
-        readRemoteRequests = readMetrics.remoteRequests.getCount();
-
-        writeLocalRequests = writeMetrics.localRequests.getCount();
-        writeRemoteRequest = writeMetrics.remoteRequests.getCount();
+        metrics = clientRequestMetrics;
+        localRequests = metrics.localRequests.getCount();
+        remoteRequests = metrics.remoteRequests.getCount();
     }
 
-    public long compareReadLocalRequest()
+    public long compareLocalRequest()
     {
-        return readMetrics.localRequests.getCount() - readLocalRequests;
+        return metrics.localRequests.getCount() - localRequests;
+    }
+    public long compareRemoteRequest()
+    {
+        return metrics.remoteRequests.getCount() - remoteRequests;
     }
 
-    public long compareReadRemoteRequest()
-    {
-        return readMetrics.remoteRequests.getCount() - readRemoteRequests;
-    }
-
-    public long compareWriteLocalRequest()
-    {
-        return writeMetrics.localRequests.getCount() - writeLocalRequests;
-    }
-
-    public long compareWriteRemoteRequest()
-    {
-        return writeMetrics.remoteRequests.getCount() - writeRemoteRequest;
-    }
 }
 
 @RunWith(OrderedJUnit4ClassRunner.class)
-public class LocalRemoteRequestsMetricsTest extends SchemaLoader
+public class ClientRequestMetricsTest extends SchemaLoader
 {
     private static EmbeddedCassandraService cassandra;
 
@@ -89,12 +72,15 @@ public class LocalRemoteRequestsMetricsTest extends SchemaLoader
     private static Session session;
 
     private static String KEYSPACE = "junit";
-    private static final String TABLE = "localremoterequestsmetricstest";
+    private static final String TABLE = "clientrequestsmetricstest";
 
     private static PreparedStatement writePS;
     private static PreparedStatement paxosPS;
     private static PreparedStatement readPS;
     private static PreparedStatement readRangePS;
+
+    private static final ClientRequestMetrics readMetrics = new ClientRequestMetrics("Read");
+    private static final ClientWriteRequestMetrics writeMetrics = new ClientWriteRequestMetrics("Write");
 
     @BeforeClass()
     public static void setup() throws ConfigurationException, IOException
@@ -112,7 +98,7 @@ public class LocalRemoteRequestsMetricsTest extends SchemaLoader
         session.execute("CREATE TABLE IF NOT EXISTS " + TABLE + " (id int, ord int, val text, PRIMARY KEY (id, ord));");
 
         writePS = session.prepare("INSERT INTO " + KEYSPACE + '.' + TABLE + " (id, ord, val) VALUES (?, ?, ?);");
-        paxosPS = session.prepare("UPDATE " + KEYSPACE + '.' + TABLE + " set val=? WHERE id=? AND ord=?");
+        paxosPS = session.prepare("INSERT INTO " + KEYSPACE + '.' + TABLE + " (id, ord, val) VALUES (?, ?, ?) IF NOT EXISTS;");
         readPS = session.prepare("SELECT * FROM " + KEYSPACE + '.' + TABLE + " WHERE id=?;");
         readRangePS = session.prepare("SELECT * FROM " + KEYSPACE + '.' + TABLE + " WHERE id=? AND ord>=? AND ord <= ?;");
     }
@@ -123,9 +109,9 @@ public class LocalRemoteRequestsMetricsTest extends SchemaLoader
         session.execute(bs);
     }
 
-    private void executePAXOS(int id, int ord, String new_val)
+    private void executePAXOS(int id, int ord, String val)
     {
-        BoundStatement bs = paxosPS.bind(new_val, id, ord);
+        BoundStatement bs = paxosPS.bind(id, ord, val);
         session.execute(bs);
     }
 
@@ -159,73 +145,81 @@ public class LocalRemoteRequestsMetricsTest extends SchemaLoader
     @Test
     public void testWriteStatement()
     {
-        MetricContainer metricContainer = new MetricContainer();
+        ClientRequestMetricsContainer writeMetricsContainer = new ClientRequestMetricsContainer(writeMetrics);
+        ClientRequestMetricsContainer readMetricsContainer = new ClientRequestMetricsContainer(readMetrics);
 
         executeWrite(1, 1, "aaaa");
 
-        assertEquals(0, metricContainer.compareReadLocalRequest());
-        assertEquals(0, metricContainer.compareReadRemoteRequest());
+        assertEquals(1, writeMetricsContainer.compareLocalRequest());
+        assertEquals(0, writeMetricsContainer.compareRemoteRequest());
 
-        assertEquals(1, metricContainer.compareWriteLocalRequest());
-        assertEquals(0, metricContainer.compareWriteRemoteRequest());
+        assertEquals(0, readMetricsContainer.compareLocalRequest());
+        assertEquals(0, readMetricsContainer.compareRemoteRequest());
+
+
     }
 
     @Test
     public void testPaxosStatement()
     {
-        MetricContainer metricContainer = new MetricContainer();
+        ClientRequestMetricsContainer writeMetricsContainer = new ClientRequestMetricsContainer(writeMetrics);
+        ClientRequestMetricsContainer readMetricsContainer = new ClientRequestMetricsContainer(readMetrics);
 
         executePAXOS(2, 2, "aaaa");
 
-        assertEquals(0, metricContainer.compareReadLocalRequest());
-        assertEquals(0, metricContainer.compareReadRemoteRequest());
+        assertEquals(1, readMetricsContainer.compareLocalRequest());
+        assertEquals(0, readMetricsContainer.compareRemoteRequest());
 
-        assertEquals(1, metricContainer.compareWriteLocalRequest());
-        assertEquals(0, metricContainer.compareWriteRemoteRequest());
+        assertEquals(1, writeMetricsContainer.compareLocalRequest());
+        assertEquals(0, writeMetricsContainer.compareRemoteRequest());
     }
 
     @Test
     public void testBatchStatement()
     {
-        MetricContainer metricContainer = new MetricContainer();
+        ClientRequestMetricsContainer writeMetricsContainer = new ClientRequestMetricsContainer(writeMetrics);
+        ClientRequestMetricsContainer readMetricsContainer = new ClientRequestMetricsContainer(readMetrics);
 
         executeBatch(10, 10);
 
-        assertEquals(0, metricContainer.compareReadLocalRequest());
-        assertEquals(0, metricContainer.compareReadRemoteRequest());
+        assertEquals(0, readMetricsContainer.compareLocalRequest());
+        assertEquals(0, readMetricsContainer.compareRemoteRequest());
 
-        assertEquals(10, metricContainer.compareWriteLocalRequest());
-        assertEquals(0, metricContainer.compareWriteRemoteRequest());
+        assertEquals(10, writeMetricsContainer.compareLocalRequest());
+        assertEquals(0, writeMetricsContainer.compareRemoteRequest());
     }
 
     @Test
     public void testReadStatement()
     {
-        MetricContainer metricContainer = new MetricContainer();
-
         executeWrite(1, 1, "aaaa");
+
+        ClientRequestMetricsContainer writeMetricsContainer = new ClientRequestMetricsContainer(writeMetrics);
+        ClientRequestMetricsContainer readMetricsContainer = new ClientRequestMetricsContainer(readMetrics);
+
         executeRead(1);
 
-        assertEquals(1, metricContainer.compareReadLocalRequest());
-        assertEquals(0, metricContainer.compareReadRemoteRequest());
+        assertEquals(1, readMetricsContainer.compareLocalRequest());
+        assertEquals(0, readMetricsContainer.compareRemoteRequest());
 
-        assertEquals(1, metricContainer.compareWriteLocalRequest());
-        assertEquals(0, metricContainer.compareWriteRemoteRequest());
+        assertEquals(0, writeMetricsContainer.compareLocalRequest());
+        assertEquals(0, writeMetricsContainer.compareRemoteRequest());
     }
 
     @Test
     public void testRangeStatement()
     {
-        MetricContainer metricContainer = new MetricContainer();
-
         executeBatch(1, 100);
+
+        ClientRequestMetricsContainer writeMetricsContainer = new ClientRequestMetricsContainer(writeMetrics);
+        ClientRequestMetricsContainer readMetricsContainer = new ClientRequestMetricsContainer(readMetrics);
+
         executeSlice(1, 0, 99);
 
-        assertEquals(1, metricContainer.compareReadLocalRequest());
-        assertEquals(0, metricContainer.compareReadRemoteRequest());
+        assertEquals(1, readMetricsContainer.compareLocalRequest());
+        assertEquals(0, readMetricsContainer.compareRemoteRequest());
 
-        assertEquals(1, metricContainer.compareWriteLocalRequest());
-        assertEquals(0, metricContainer.compareWriteRemoteRequest());
+        assertEquals(0, writeMetricsContainer.compareLocalRequest());
+        assertEquals(0, writeMetricsContainer.compareRemoteRequest());
     }
 }
-
