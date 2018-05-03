@@ -60,6 +60,8 @@ public class NodeTool
                 Cleanup.class,
                 ClearSnapshot.class,
                 ClientStats.class,
+                EnableClient.class,
+                DisableClient.class,
                 Compact.class,
                 Scrub.class,
                 Verify.class,

@@ -65,5 +65,15 @@ public class ClientStats extends NodeToolCmd
             table.add(entry.getKey(), entry.getValue().toString());
         }
         table.printTo(System.out);
+
+        System.out.println();
+        TableBuilder blacklistedTable = new TableBuilder();
+        blacklistedTable.add("Banned Hosts");
+        for (String hostname : probe.getBannedHostnames())
+        {
+            blacklistedTable.add(hostname);
+        }
+        blacklistedTable.printTo(System.out);
+        System.out.println();
     }
 }

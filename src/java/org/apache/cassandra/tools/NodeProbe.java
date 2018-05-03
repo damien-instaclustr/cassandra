@@ -86,6 +86,7 @@ import org.apache.cassandra.service.StorageServiceMBean;
 import org.apache.cassandra.streaming.StreamManagerMBean;
 import org.apache.cassandra.streaming.StreamState;
 import org.apache.cassandra.streaming.management.StreamStateCompositeData;
+import org.apache.cassandra.transport.ConnectionBlacklistHandler;
 
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
@@ -95,6 +96,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.tools.nodetool.GetTimeout;
+import org.apache.cassandra.transport.ConnectionBlacklistHandlerMBean;
 
 /**
  * JMX client operations for Cassandra.
@@ -128,6 +130,7 @@ public class NodeProbe implements AutoCloseable
     private HintedHandOffManagerMBean hhProxy;
     private BatchlogManagerMBean bmProxy;
     private ActiveRepairServiceMBean arsProxy;
+    private ConnectionBlacklistHandlerMBean cbhProxy;
     private boolean failed;
 
     /**
@@ -222,6 +225,8 @@ public class NodeProbe implements AutoCloseable
             bmProxy = JMX.newMBeanProxy(mbeanServerConn, name, BatchlogManagerMBean.class);
             name = new ObjectName(ActiveRepairServiceMBean.MBEAN_NAME);
             arsProxy = JMX.newMBeanProxy(mbeanServerConn, name, ActiveRepairServiceMBean.class);
+            name = new ObjectName(ConnectionBlacklistHandler.MBEAN_NAME);
+            cbhProxy = JMX.newMBeanProxy(mbeanServerConn, name, ConnectionBlacklistHandlerMBean.class);
         }
         catch (MalformedObjectNameException e)
         {
@@ -1532,6 +1537,12 @@ public class NodeProbe implements AutoCloseable
             throw new RuntimeException(e);
         }
     }
+
+    public List<String> getBannedHostnames() { return cbhProxy.getBannedHostnames(); }
+
+    public void banHostname(String hostname) { cbhProxy.banHostname(hostname); }
+
+    public void permitHostname(String hostname) { cbhProxy.permitHostname(hostname); }
 
     /**
      * Retrieve Proxy metrics
