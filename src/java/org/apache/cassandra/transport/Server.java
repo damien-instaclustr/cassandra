@@ -347,14 +347,14 @@ public class Server implements CassandraDaemon.Server
         private static final Message.ExceptionHandler exceptionHandler = new Message.ExceptionHandler();
         private static final Message.Dispatcher dispatcher = new Message.Dispatcher();
         private static final ConnectionLimitHandler connectionLimitHandler = new ConnectionLimitHandler();
-        private static ConnectionBlacklistHandler connectionBlacklistHandler;
+        private static final ConnectionBlacklistHandler connectionBlacklistHandler = new ConnectionBlacklistHandler();
 
         private final Server server;
 
         public Initializer(Server server)
         {
             this.server = server;
-            connectionBlacklistHandler = new ConnectionBlacklistHandler(server.connectionTracker);
+            connectionBlacklistHandler.setConnectionTracker(server.connectionTracker);
         }
 
         protected void initChannel(Channel channel) throws Exception

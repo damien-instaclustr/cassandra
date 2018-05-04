@@ -62,15 +62,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
         }
     }
 
-    public ConnectionBlacklistHandler()
-    {
-        connectionTracker = null;
-    }
-
-    public ConnectionBlacklistHandler(ConnectionTracker ct)
-    {
-        connectionTracker = ct;
-    }
+    public void setConnectionTracker(ConnectionTracker ct) { connectionTracker = ct; }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception
