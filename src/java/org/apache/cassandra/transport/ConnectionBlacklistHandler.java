@@ -45,7 +45,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
     private static final Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
 
     private static final List<InetAddress> blacklist = new ArrayList<>();
-    private ConnectionTracker connectionTracker;
+    private static ConnectionTracker connectionTracker;
 
     public static final ConnectionBlacklistHandler instance = new ConnectionBlacklistHandler();
 
