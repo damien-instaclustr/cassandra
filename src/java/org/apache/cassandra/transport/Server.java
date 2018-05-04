@@ -355,7 +355,6 @@ public class Server implements CassandraDaemon.Server
         {
             this.server = server;
             connectionBlacklistHandler = new ConnectionBlacklistHandler(server.connectionTracker);
-            //connectionBlacklistHandler.setConnectionTracker(server.connectionTracker);
         }
 
         protected void initChannel(Channel channel) throws Exception

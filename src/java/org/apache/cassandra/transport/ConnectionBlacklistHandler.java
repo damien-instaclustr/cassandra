@@ -45,21 +45,31 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
     private static final Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
 
     private static final List<InetAddress> blacklist = new ArrayList<>();
-    private static ConnectionTracker connectionTracker;
+    private ConnectionTracker connectionTracker;
 
-    public ConnectionBlacklistHandler(ConnectionTracker ct)
+    public static final ConnectionBlacklistHandler instance = new ConnectionBlacklistHandler();
+
+    static
     {
-        connectionTracker = ct;
-
         MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
         try
         {
-            mbs.registerMBean(this, new ObjectName(MBEAN_NAME));
+            mbs.registerMBean(instance, new ObjectName(MBEAN_NAME));
         }
         catch (Exception e)
         {
             throw new RuntimeException(e);
         }
+    }
+
+    public ConnectionBlacklistHandler()
+    {
+        connectionTracker = null;
+    }
+
+    public ConnectionBlacklistHandler(ConnectionTracker ct)
+    {
+        connectionTracker = ct;
     }
 
     @Override
@@ -101,15 +111,18 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
         if (!blacklist.contains(addr))
             blacklist.add(addr);
 
-        for (Channel c: connectionTracker.allChannels)
+        if (connectionTracker != null)
         {
-            Connection connection = c.attr(Connection.attributeKey).get();
-            if (connection instanceof ServerConnection)
+            for (Channel c : connectionTracker.allChannels)
             {
-                ServerConnection conn = (ServerConnection) connection;
-                if (conn.getClientState().getRemoteAddress().getAddress().equals(addr))
+                Connection connection = c.attr(Connection.attributeKey).get();
+                if (connection instanceof ServerConnection)
                 {
-                    c.close().awaitUninterruptibly();
+                    ServerConnection conn = (ServerConnection) connection;
+                    if (conn.getClientState().getRemoteAddress().getAddress().equals(addr))
+                    {
+                        c.close().awaitUninterruptibly();
+                    }
                 }
             }
         }
