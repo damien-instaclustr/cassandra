@@ -22,12 +22,19 @@ import java.util.List;
 public interface ConnectionBlacklistHandlerMBean
 {
     /**
-     * TODO
+     * Get all hostnames from which connections are actively blocked.
      *
-     * @return TODO
+     * @return List of hostnames (INetAddress)
      */
-
     public List<String> getBannedHostnames();
+
+    /**
+     * Add the given hostname to the list of blacklisted clients.
+     */
     public void banHostname(String hostname);
+
+    /**
+     * Remove the given hostname from the list of blacklisted clients.
+     */
     public void permitHostname(String hostname);
 }

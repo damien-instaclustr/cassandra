@@ -23,10 +23,10 @@ import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool.NodeToolCmd;
 
-@Command(name = "enableclient", description = "Allow connections from host if it has been disabled.")
+@Command(name = "enableclient", description = "Enable client connections from a given hostname if it has been disabled.")
 public class EnableClient extends NodeToolCmd
 {
-    @Arguments(title = "hostname", usage = "<hostname>|<IP address>", description = "The host to permit.", required = true)
+    @Arguments(title = "hostname", usage = "<hostname>|<IP address>", description = "The host to enable.", required = true)
     private String hostname = "";
 
     @Override

@@ -44,7 +44,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
 
     private static final Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
 
-    private static final List<InetAddress> blacklist = new ArrayList<>();
+    private static final List<InetAddress> blacklistedHosts = new ArrayList<>();
     private static ConnectionTracker connectionTracker;
 
     public static final ConnectionBlacklistHandler instance = new ConnectionBlacklistHandler();
@@ -65,9 +65,9 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
     public void setConnectionTracker(ConnectionTracker ct) { connectionTracker = ct; }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception
+    public void channelActive(ChannelHandlerContext ctx)
     {
-        for (InetAddress addr : blacklist)
+        for (InetAddress addr : blacklistedHosts)
         {
             if (addr.equals(((InetSocketAddress)ctx.channel().remoteAddress()).getAddress()))
             {
@@ -83,7 +83,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
     public List<String> getBannedHostnames()
     {
         List<String> bannedHostnames = new ArrayList<>();
-        for (InetAddress addr : blacklist)
+        for (InetAddress addr : blacklistedHosts)
         {
             bannedHostnames.add(addr.toString());
         }
@@ -96,12 +96,12 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
 
         try {
             addr = InetAddress.getByName(hostname);
-        } catch (UnknownHostException var6) {
+        } catch (UnknownHostException e) {
             return;
         }
 
-        if (!blacklist.contains(addr))
-            blacklist.add(addr);
+        if (!blacklistedHosts.contains(addr))
+            blacklistedHosts.add(addr);
 
         if (connectionTracker != null)
         {
@@ -126,12 +126,12 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
 
         try {
             addr = InetAddress.getByName(hostname);
-        } catch (UnknownHostException var6) {
+        } catch (UnknownHostException e) {
             return;
         }
 
-        if (blacklist.contains(addr))
-            blacklist.remove(addr);
+        if (blacklistedHosts.contains(addr))
+            blacklistedHosts.remove(addr);
     }
 
 }

@@ -23,10 +23,10 @@ import io.airlift.airline.Command;
 import org.apache.cassandra.tools.NodeProbe;
 import org.apache.cassandra.tools.NodeTool;
 
-@Command(name = "disableclient", description = "Ban existing and new connections from host.")
+@Command(name = "disableclient", description = "Disable client connections from a given hostname.")
 public class DisableClient extends NodeTool.NodeToolCmd
 {
-    @Arguments(title = "hostname", usage = "<hostname>|<IP address>", description = "The host to ban.", required = true)
+    @Arguments(title = "hostname", usage = "<hostname>|<IP address>", description = "The host to disable.", required = true)
     private String hostname = "";
 
     @Override
