@@ -331,8 +331,8 @@ public class Keyspace
 
     private Keyspace(KeyspaceMetadata metadata, boolean loadSSTables)
     {
-        this.metadata = metadata;
         assert metadata != null : "Unknown keyspace";
+        this.metadata = metadata;
         createReplicationStrategy(metadata);
 
         this.metric = new KeyspaceMetrics(this);
