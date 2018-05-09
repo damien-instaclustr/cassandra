@@ -23,6 +23,8 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -44,7 +46,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
 
     private static final Logger logger = LoggerFactory.getLogger(ConnectionLimitHandler.class);
 
-    private static final List<InetAddress> blacklistedHosts = new ArrayList<>();
+    private static final Set<InetAddress> blacklistedHosts = new HashSet<>();
     private static ConnectionTracker connectionTracker;
 
     public static final ConnectionBlacklistHandler instance = new ConnectionBlacklistHandler();
@@ -100,8 +102,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
             return;
         }
 
-        if (!blacklistedHosts.contains(addr))
-            blacklistedHosts.add(addr);
+        blacklistedHosts.add(addr);
 
         if (connectionTracker != null)
         {
@@ -130,8 +131,7 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
             return;
         }
 
-        if (blacklistedHosts.contains(addr))
-            blacklistedHosts.remove(addr);
+        blacklistedHosts.remove(addr);
     }
 
 }
