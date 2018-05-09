@@ -69,14 +69,13 @@ public class ConnectionBlacklistHandler extends ChannelInboundHandlerAdapter imp
     @Override
     public void channelActive(ChannelHandlerContext ctx)
     {
-        for (InetAddress addr : blacklistedHosts)
+        InetAddress clientAddress = ((InetSocketAddress)ctx.channel().remoteAddress()).getAddress();
+
+        if (blacklistedHosts.contains(clientAddress))
         {
-            if (addr.equals(((InetSocketAddress)ctx.channel().remoteAddress()).getAddress()))
-            {
-                logger.info("Blocking client connection from {}", addr.toString());
-                ctx.close();
-                return;
-            }
+            logger.info("Blocking client connection from {}", clientAddress.toString());
+            ctx.close();
+            return;
         }
 
         ctx.fireChannelActive();
