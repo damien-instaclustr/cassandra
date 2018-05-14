@@ -294,17 +294,8 @@ public class DefsTest
         }
         assertFalse("This mutation should have failed since the KS no longer exists.", success);
 
-        // reads should fail too.
-        boolean threw = false;
-        try
-        {
-            Keyspace.open(ks.name);
-        }
-        catch (Throwable th)
-        {
-            threw = true;
-        }
-        assertTrue(threw);
+        // reads should return null.
+        assertNull(Keyspace.open(ks.name));
     }
 
     @Test
