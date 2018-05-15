@@ -34,6 +34,7 @@ import org.junit.Assert;
 import org.apache.cassandra.concurrent.SEPExecutor;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
+import org.apache.cassandra.exceptions.InvalidRequestException;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.schema.Schema;
@@ -698,5 +699,32 @@ public class ViewSchemaTest extends CQLTester
                              "CREATE MATERIALIZED VIEW " + keyspace() + ".mv AS SELECT * FROM %s "
                                      + "WHERE b IS NOT NULL AND c IS NOT NULL AND a IS NOT NULL "
                                      + "AND d = 1 PRIMARY KEY (c, b, a)");
+    }
+
+    public void expectInvalidRequestException(String query, String expectedExceptionMessage) throws Throwable
+    {
+        try
+        {
+            execute(query);
+            Assert.fail("Query should have failed with exception. Query: " + formatQuery(query));
+        }
+        catch (InvalidRequestException e)
+        {
+            Assert.assertTrue(e.getMessage().contains(expectedExceptionMessage));
+        }
+    }
+
+    @Test
+    public void testViewTokenRestrictions() throws Throwable
+    {
+        createTable("CREATE TABLE %s (a int, b int, c int, d int, PRIMARY KEY(a))");
+
+        execute("USE " + keyspace());
+        executeNet(protocolVersion, "USE " + keyspace());
+
+        execute("INSERT into %s (a,b,c,d) VALUES (?,?,?,?)", 1,2,3,4);
+
+        assertInvalidThrowMessage("Cannot use function when defining a materialized view", InvalidRequestException.class,
+                                  "CREATE MATERIALIZED VIEW mv_test AS SELECT a,b,c FROM %s WHERE a IS NOT NULL and b IS NOT NULL and token(a) = token(1) PRIMARY KEY(b,a)");
     }
 }
