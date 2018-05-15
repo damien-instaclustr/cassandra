@@ -134,8 +134,14 @@ public class Keyspace
                 if (keyspaceInstance == null)
                 {
                     // open and store the keyspace
-                    keyspaceInstance = new Keyspace(keyspaceName, loadSSTables);
-                    schema.storeKeyspaceInstance(keyspaceInstance);
+                    KeyspaceMetadata metadata = Schema.instance.getKeyspaceMetadata(keyspaceName);
+                    if (metadata == null)
+                        return null;
+                    else
+                    {
+                        keyspaceInstance = new Keyspace(metadata, loadSSTables);
+                        schema.storeKeyspaceInstance(keyspaceInstance);
+                    }
                 }
             }
         }
@@ -323,10 +329,9 @@ public class Keyspace
         return list;
     }
 
-    private Keyspace(String keyspaceName, boolean loadSSTables)
+    private Keyspace(KeyspaceMetadata metadata, boolean loadSSTables)
     {
-        metadata = Schema.instance.getKeyspaceMetadata(keyspaceName);
-        assert metadata != null : "Unknown keyspace " + keyspaceName;
+        this.metadata = metadata;
         createReplicationStrategy(metadata);
 
         this.metric = new KeyspaceMetrics(this);
